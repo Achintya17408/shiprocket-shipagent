@@ -6,6 +6,8 @@ The repo is designed to run locally before paid credentials are configured. `SHI
 
 For interview prep and the project walkthrough, see [INTERVIEW_PREP.md](INTERVIEW_PREP.md).
 
+For current completion status against the original sprint checklist, see [PROGRESS.md](PROGRESS.md).
+
 ## Architecture
 
 ```text
