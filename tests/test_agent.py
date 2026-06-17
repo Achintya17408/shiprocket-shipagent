@@ -2,6 +2,7 @@ import json
 from datetime import datetime, timedelta
 
 from agent.graph import build_agent_graph
+import agent.llm_router as llm_router
 from agent.llm_router import classify_with_haiku, summarise_with_sonnet
 from services.rto_predictor import calculate_rule_based_rto_score
 
@@ -60,3 +61,82 @@ def test_rule_based_rto_score_flags_cod_attempts():
 def test_graph_compiles():
     graph = build_agent_graph()
     assert graph is not None
+
+
+class _FakeAnthropicContent:
+    text = '{"issue_type":"NORMAL","confidence":0.99,"reason":"mocked real-mode Claude call"}'
+
+
+class _FakeAnthropicResponse:
+    content = [_FakeAnthropicContent()]
+
+
+class _FakeMessages:
+    def __init__(self):
+        self.calls = []
+
+    def create(self, **kwargs):
+        self.calls.append(kwargs)
+        return _FakeAnthropicResponse()
+
+
+class _FakeAnthropic:
+    last_instance = None
+
+    def __init__(self, api_key):
+        self.api_key = api_key
+        self.messages = _FakeMessages()
+        _FakeAnthropic.last_instance = self
+
+
+class _FakeEmbeddingDatum:
+    embedding = [0.0] * 1536
+
+
+class _FakeEmbeddingResponse:
+    data = [_FakeEmbeddingDatum()]
+
+
+class _FakeEmbeddings:
+    def __init__(self):
+        self.calls = []
+
+    def create(self, **kwargs):
+        self.calls.append(kwargs)
+        return _FakeEmbeddingResponse()
+
+
+class _FakeOpenAI:
+    last_instance = None
+
+    def __init__(self, api_key):
+        self.api_key = api_key
+        self.embeddings = _FakeEmbeddings()
+        _FakeOpenAI.last_instance = self
+
+
+def test_real_mode_claude_path_is_mocked_without_spending(monkeypatch):
+    monkeypatch.setenv("SHIPAGENT_OFFLINE_MODE", "false")
+    monkeypatch.setenv("ANTHROPIC_API_KEY", "sk-ant-test")
+    monkeypatch.setenv("OPENAI_API_KEY", "sk-test")
+    monkeypatch.setattr(llm_router, "Anthropic", _FakeAnthropic)
+
+    result = classify_with_haiku("Order data:\n{}\nRelevant context retrieved from courier policies and historical case resolutions:\nmock")
+
+    assert result["model"] == "claude-haiku-4-5-20251001"
+    assert _FakeAnthropic.last_instance.api_key == "sk-ant-test"
+    assert _FakeAnthropic.last_instance.messages.calls[0]["model"] == "claude-haiku-4-5-20251001"
+
+
+def test_real_mode_openai_embedding_path_is_mocked_without_spending(monkeypatch):
+    import services.rag_service as rag_service
+
+    monkeypatch.setenv("SHIPAGENT_OFFLINE_MODE", "false")
+    monkeypatch.setenv("OPENAI_API_KEY", "sk-test")
+    monkeypatch.setattr(rag_service, "OpenAI", _FakeOpenAI)
+
+    embedding = rag_service.get_embedding("mock courier policy")
+
+    assert len(embedding) == 1536
+    assert _FakeOpenAI.last_instance.api_key == "sk-test"
+    assert _FakeOpenAI.last_instance.embeddings.calls[0]["model"] == "text-embedding-3-small"
