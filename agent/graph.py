@@ -30,6 +30,12 @@ class AgentState(TypedDict):
     alert_sent: bool
     llm_used: str
     latency_ms: int
+    classification_llm_used: str
+    classification_latency_ms: int
+    assessment_llm_used: str
+    assessment_latency_ms: int
+    alert_llm_used: str
+    alert_latency_ms: int
     decisions: List[dict]
 
 

@@ -19,6 +19,12 @@ def run_once() -> dict:
         "alert_sent": False,
         "llm_used": "",
         "latency_ms": 0,
+        "classification_llm_used": "",
+        "classification_latency_ms": 0,
+        "assessment_llm_used": "",
+        "assessment_latency_ms": 0,
+        "alert_llm_used": "",
+        "alert_latency_ms": 0,
         "decisions": [],
     }
     return agent_graph.invoke(initial_state)

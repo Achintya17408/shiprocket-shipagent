@@ -6,6 +6,7 @@ import sys
 sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
 from services.rag_service import add_knowledge_chunk
+from db.connection import get_db_connection
 
 COURIER_POLICIES = [
     {
@@ -79,6 +80,11 @@ HISTORICAL_CASES = [
 
 
 def seed() -> None:
+    with get_db_connection() as conn:
+        with conn.cursor() as cur:
+            cur.execute("DELETE FROM knowledge_chunks WHERE source IN ('courier_policy', 'past_case')")
+            conn.commit()
+
     print("Seeding courier policies into pgvector knowledge base...")
     for item in COURIER_POLICIES:
         add_knowledge_chunk(**item)

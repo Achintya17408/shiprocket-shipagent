@@ -103,6 +103,8 @@ def classify_anomaly_node(state: dict) -> dict:
         classification = fallback
 
     state["classification"] = classification
+    state["classification_llm_used"] = result["model"]
+    state["classification_latency_ms"] = result["latency_ms"]
     state["llm_used"] = result["model"]
     state["latency_ms"] = result["latency_ms"]
     return state
@@ -140,6 +142,8 @@ def assess_rto_risk_node(state: dict) -> dict:
     assessment = _parse_json_object(result["result"], calculate_rule_based_rto_score(order))
 
     state["rto_assessment"] = assessment
+    state["assessment_llm_used"] = result["model"]
+    state["assessment_latency_ms"] = result["latency_ms"]
     state["llm_used"] = result["model"]
 
     if float(assessment.get("rto_risk_score", 0)) >= RTO_THRESHOLD:
@@ -173,6 +177,8 @@ def send_alert_node(state: dict) -> dict:
         }
     )
     state["alert_sent"] = True
+    state["alert_llm_used"] = result["model"]
+    state["alert_latency_ms"] = result["latency_ms"]
     state["llm_used"] = result["model"]
     state["latency_ms"] = result["latency_ms"]
     return state
@@ -197,6 +203,29 @@ def log_decision_node(state: dict) -> dict:
     order = state.get("current_order")
     if not order:
         return state
+
+    log_agent_decision.invoke(
+        {
+            "order_id": order["order_id"],
+            "decision_type": f"CLASSIFICATION_{state['classification']['issue_type']}",
+            "reasoning": state["classification"].get("reason", ""),
+            "action_taken": "classified",
+            "llm_used": state.get("classification_llm_used", state.get("llm_used", "unknown")),
+            "latency_ms": int(state.get("classification_latency_ms") or 0),
+        }
+    )
+
+    if state.get("alert_sent"):
+        log_agent_decision.invoke(
+            {
+                "order_id": order["order_id"],
+                "decision_type": f"ALERT_{state['classification']['issue_type']}",
+                "reasoning": "Merchant alert generated and sent.",
+                "action_taken": "alert_sent",
+                "llm_used": state.get("alert_llm_used", state.get("llm_used", "unknown")),
+                "latency_ms": int(state.get("alert_latency_ms") or 0),
+            }
+        )
 
     log_agent_decision.invoke(
         {

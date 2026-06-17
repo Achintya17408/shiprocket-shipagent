@@ -121,3 +121,5 @@ docker compose exec postgres psql -U shipagent -d shipagent_db -c "\dt"
 docker compose exec postgres psql -U shipagent -d shipagent_db -c "SELECT COUNT(*) FROM knowledge_chunks;"
 docker compose exec redis redis-cli ping
 ```
+
+If another local PostgreSQL is already listening on `5432`, this Compose file publishes ShipAgent Postgres on host port `55432` while containers still use `postgres:5432`.
